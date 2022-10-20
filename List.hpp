@@ -1,8 +1,8 @@
 #pragma once
 
 template<typename T>
-class List : private noncopyable {
-    class Link : private noncopyable {
+class List {
+    class Link {
     public:
         Link* prev, * next;
 
