@@ -73,7 +73,42 @@ public:
         tail.prev = tail.next = &tail;
     }
 
-    ~List() {}
+    Node* insert(Node* node, Hook* dest) {
+        ++_size;
+        if (dest == nullptr)
+            dest = &tail;
+        node->prev = dest->prev;
+        node->next = dest;
+        return (Node*)(dest->prev = dest->prev->next = node);
+    }
+
+    void erase(Node* node, bool destroy) {
+        --_size;
+        node->prev->next = node->next;
+        node->next->prev = node->prev;
+        if (destroy)
+            delete node;
+    }
+
+    void clear(bool destroy) {
+        _size = 0;
+        if (destroy) {
+            for (auto node = tail.next; node != &tail;) {
+                auto next = node->next;
+                delete node;
+                node = next;
+            }
+        }
+        tail.prev = tail.next = &tail;
+    }
+
+    size_t size() const {
+        return _size;
+    }
+
+    bool empty() const {
+        return _size == 0;
+    }
 
     iterator begin() {
         return iterator(tail.next);
@@ -99,39 +134,8 @@ public:
         return *(Node*)tail.prev;
     }
 
-    iterator insert(iterator it, Hook* hook) {
-        ++_size;
-        hook->prev = it->prev;
-        hook->next = &*it;
-        return iterator(it->prev = it->prev->next = hook);
-    }
-
-    void erase(iterator it, bool destroy = false) {
-        --_size;
-        it->prev->next = it->next;
-        it->next->prev = it->prev;
-        if (destroy)
-            delete&* it;
-    }
-
-    void clear(bool destroy = false) {
-        _size = 0;
-        if (destroy) {
-            for (auto hook = tail.next; hook != &tail;) {
-                auto next = hook->next;
-                delete (Node*)hook;
-                hook = next;
-            }
-        }
-        tail.prev = tail.next = &tail;
-    }
-
-    size_t size() const {
-        return _size;
-    }
-
-    bool empty() const {
-        return _size == 0;
+    void erase(iterator it, bool destroy) {
+        return erase(&*it, destroy);
     }
 };
 
@@ -141,24 +145,54 @@ public:
     enum colour_t : bool { BLACK, RED };
 
     struct Hook {
-        Hook* parent;
-        Hook* child[2];
+        Node* parent;
+        Node* child[2];
         colour_t colour;
     };
 
     std::function<bool(const Node* a, const Node* b)> greater;
+    Node* root = nullptr;
 
-private:
-    Hook* root = nullptr;
-
+public:
     // n = node now, p = parent, g = grandparent, k = kid, c = close nephew, d = distant nephew
-    static bool getDir(Hook* n) { // returns the side of parent on which the hook is located
-        return n == (n->parent)->child[true] ? true : false;
+    static inline bool getDir(Node* n, Node* p) { // returns the side of parent on which the node is located
+        assert(n->parent = p);
+        return n == p->child[true] ? true : false;
     }
 
-    Hook* rotate(Hook* p, bool dir) { // move p down in direction dir
+    static Node* step(Node* n, bool side) {
+        auto x = n->child[side];
+        if (x != nullptr) {
+            n = x;
+            while (true) {
+                x = n->child[!side];
+                if (x == nullptr)
+                    return n;
+                n = x;
+            }
+        }
+        while (true) {
+            x = n->parent;
+            if (x == nullptr)
+                return nullptr;
+            if (x->child[!side] == n)
+                return x;
+            n = x;
+        }
+    }
+
+    TreeRB() {}
+
+    TreeRB(std::function<bool(const Node* a, const Node* b)> greater)
+        : greater(greater) {}
+
+    Node* rotate(Node* p, bool dir) { // move p down in direction dir
         auto g = p->parent;
         auto n = p->child[!dir]; // n takes place of p
+        if (g != nullptr)
+            g->child[getDir(p, g)] = n;
+        else
+            root = n;
         assert(n != nullptr);
         auto k = n->child[dir];
         p->child[!dir] = k;
@@ -167,29 +201,54 @@ private:
         n->child[dir] = p;
         p->parent = n;
         n->parent = g;
-        if (g != nullptr)
-            g->child[p == g->child[true] ? true : false] = n;
-        else
-            root = n;
         return n;
     }
 
-    void insert(Hook* n, Hook* p, bool dir) {
+    std::tuple<Node*, Node*, bool> find(std::function<bool(const Node* n)> greater, std::function<bool(const Node* n)> equal) { // returns: pointer to the node found (nullptr if not found), pointer to the parent if not found, direction from the parent if not found
+        if (root == nullptr)
+            return { nullptr, nullptr, false };
+        auto n = root;
+        while (true) {
+            if (equal(n))
+                return { n, nullptr, false };
+            auto dir = greater(n);
+            auto k = n->child[dir];
+            if (k == nullptr)
+                return { nullptr, n, dir };
+            n = k;
+        }
+    }
+
+    Node* insert(Node* n) {
+        if (root == nullptr)
+            return insert(n, nullptr, false);
+        auto p = root;
+        bool dir;
+        while (true) {
+            dir = greater(n, p);
+            auto k = p->child[dir];
+            if (k == nullptr)
+                return insert(n, p, dir);
+            p = k;
+        }
+    }
+
+    Node* insert(Node* n, Node* p, bool dir) {
         n->colour = RED;
         n->child[false] = n->child[true] = nullptr;
         n->parent = p;
         if (p == nullptr) {
             root = n;
-            return;
+            return n;
         }
         p->child[dir] = n;
         while (p->colour == RED) { // p red
             auto g = p->parent;
             if (g == nullptr) { // p red root
                 p->colour = BLACK;
-                return;
+                return n;
             }
-            auto dir2 = getDir(p);
+            auto dir2 = getDir(p, g);
             auto u = g->child[!dir2];
             if (u == nullptr || u->colour == BLACK) { // p red, u black
                 if (dir != dir2) { // n is the inner grandchild of g
@@ -199,21 +258,18 @@ private:
                 rotate(g, !dir2);
                 p->colour = BLACK;
                 g->colour = RED;
-                return;
+                return n;
             }
             // p red, u red
             p->colour = u->colour = BLACK;
             (n = g)->colour = RED;
             if ((p = n->parent) == nullptr)
-                break;
+                return n;
         };
+        return nullptr;
     }
 
-    void erase(Hook* n) {
-        if (n == root && n->child[false] == nullptr && n->child[true] == nullptr) { // n childless root
-            root = nullptr;
-            return;
-        }
+    void erase(Node* n) { // the black height of paths passing through n is always less than the rest by one
         if (n->child[false] != nullptr && n->child[true] != nullptr) { // n with two children
             auto x = n->child[true];
             while (true) {
@@ -229,9 +285,9 @@ private:
             if (p == nullptr)
                 root = x;
             else
-                p->child[getDir(n)] = x;
+                p->child[getDir(n, p)] = x;
             n->child[false]->parent = x;
-            kx = x->child[true];
+            auto kx = x->child[true];
             if (kx != nullptr)
                 kx->parent = n;
             if (!family) {
@@ -245,10 +301,13 @@ private:
                 n->parent = x;
                 x->child[true] = n;
             }
-            n = x; // new node has up to one child (=> right)
+        } else if (n == root && n->child[false] == nullptr && n->child[true] == nullptr) { // n childless root
+            root = nullptr;
+            return;
         }
         if (n->colour == RED) { // n red => without children => non-root
-            n->parent->child[getDir(n)] = nullptr;
+            auto p = n->parent;
+            p->child[getDir(n, p)] = nullptr;
             return;
         } else { // n black with up to one child (=> red)
             for (auto dir : { false, true }) {
@@ -256,38 +315,43 @@ private:
                 if (k != nullptr) {
                     k->colour = BLACK;
                     auto p = n->parent;
-                    k->parent = p;
-                    p->child[getDir(n)] = k;
+                    if (p == nullptr)
+                        root = n;
+                    else
+                        k->parent = p;
+                    p->child[getDir(n, p)] = k;
                     return;
                 }
             }
         }
         // black without children
-        Hook* s, * c, * d;
-        auto dir = getDir(n);
+        Node* s, * c, * d;
         auto p = n->parent;
+        auto dir = getDir(n, p);
         p->child[dir] = nullptr;
         goto start_d;
-        do {
-            dir = getDir(n);
+        while (true) {
+            dir = getDir(n, p);
         start_d:
             s = p->child[!dir];
             d = s->child[!dir];
             c = s->child[dir];
             if (s->colour == RED)
-                goto case_d3;
+                goto case_s;
             // s black
             if (d != nullptr && d->colour == RED)
-                goto case_d6;
+                goto case_d;
             if (c != nullptr && c->colour == RED)
-                goto case_d5;
+                goto case_c;
             if (p->colour == RED)
-                goto case_d4;
+                goto case_p;
             // p c s d black
             s->colour = RED;
             n = p;
-        } while ((p = n->parent) != nullptr);
-    case_d3: // s red, p c d black
+            if ((p = n->parent) == nullptr)
+                return; // n is root
+        }
+    case_s: // s red, p c d black
         rotate(p, dir);
         p->colour = RED;
         s->colour = BLACK;
@@ -295,62 +359,29 @@ private:
         // p red, s black
         d = s->child[!dir];
         if (d != nullptr && d->colour == RED)
-            goto case_d6;
+            goto case_d;
         c = s->child[dir];
         if (c != nullptr && c->colour == RED)
-            goto case_d5;
-    case_d4: // p red, s c d black
+            goto case_c;
+    case_p: // p red, s c d black
         s->colour = RED;
         p->colour = BLACK;
         return;
-    case_d5: // c red, s d black
+    case_c: // c red, s d black
         rotate(s, !dir);
         s->colour = RED;
         c->colour = BLACK;
         d = s;
         s = c;
-    case_d6: // d red, s black
+    case_d: // d red, s black
         rotate(p, dir);
         s->colour = p->colour;
         p->colour = BLACK;
         d->colour = BLACK;
     }
 
-public:
-    TreeRB() {}
-
-    TreeRB(std::function<bool(const Node* a, const Node* b)> greater)
-        : greater(greater){}
-
-    Node* find(std::function<bool(const Node* n)> greater, std::function<bool(const Node* n)> equal) {
-        for (auto n = root; n != nullptr; n = n->child[greater((Node*)n)])
-            if (equal((Node*)n))
-                return (Node*)n;
-        return nullptr;
-    }
-
-    Node* insert(Node* n) {
-        if (root == nullptr) {
-            insert((Hook*)n, nullptr, false);
-            return n;
-        }
-        auto p = root;
-        bool dir;
-        while (true) {
-            dir = greater(n, (Node*)p);
-            auto k = p->child[dir];
-            if (k == nullptr) {
-                insert((Hook*)n, p, dir);
-                return n;
-            }
-            p = k;
-        }
-    }
-
-    void erase(Node* n, bool destroy = false) {
-        erase((Hook*)n);
-        if (destroy)
-            delete n;
+    void clear() {
+        root = nullptr;
     }
 
     bool empty() {
