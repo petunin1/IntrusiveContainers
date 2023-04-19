@@ -5,6 +5,14 @@
 template<typename Node, size_t N = 0>
 class TreeAVL : public Tree<Node, N> {
 public:
+    using Tree<Node, N>::root;
+    using Tree<Node, N>::side;
+    using Tree<Node, N>::rotate;
+    using Tree<Node, N>::rotate2;
+    using Tree<Node, N>::insert;
+    using Tree<Node, N>::parent;
+    using Tree<Node, N>::child;
+
     typedef int8_t balance_t;
 
     struct Hook : public Tree<Node, N>::Hook {
@@ -25,52 +33,30 @@ protected:
     }
 
     inline void rotateAVL(Node* n, Node* p, bool dir) { // temporary balance is -2/2 for p (recorded as -1/1), 0|-1/0|1 for n, rotation is right/left
-        std::cout << "    r1" << std::endl;
         rotate(n, p, dir);
-        assert(balance(p) == -sign(dir));
         if (balance(n) == 0) { // only during deletion
             balance(p) = -sign(dir);
             balance(n) = sign(dir);
-        } else { // during deletion and insertion
-            assert(balance(n) == -sign(dir));
+        } else // balance(n) == !dir; during insertion and deletion
             balance(p) = balance(n) = 0;
-        }
     }
 
     inline void rotate2AVL(Node* n, Node* p, Node* g, bool dir) { // temporary balance is -2/2 for g (recorded as -1/1), 1/-1 for p, rotation is right/left
-        std::cout << "    r2" << std::endl;
         rotate2(n, p, g, dir);
-        assert(balance(g) == -sign(dir) && balance(p) == sign(dir));
-        if (balance(n) == 0) { // only during deletion
-            balance(g) = balance(p) = 0;
-        } else { // during deletion and insertion
-            if (balance(n) == -sign(dir)) {
-                balance(g) = sign(dir);
-                balance(p) = 0;
-            } else {
-                balance(g) = 0;
-                balance(p) = -sign(dir);
-            }
-        }
+        // balance(n) can be 0 only during deletion, 1/-1 during insertion and deletion
+        auto b = sign(dir);
+        balance(g) = balance(n) == -b ? b : 0;
+        balance(p) = balance(n) == b ? -b : 0;
         balance(n) = 0;
     }
 
 public:
-    using Tree<Node, N>::root;
-    using Tree<Node, N>::side;
-    using Tree<Node, N>::rotate;
-    using Tree<Node, N>::rotate2;
-    using Tree<Node, N>::insert;
-    using Tree<Node, N>::parent;
-    using Tree<Node, N>::child;
-
     TreeAVL() {}
 
     TreeAVL(std::function<bool(const Node* a, const Node* b)> greater)
         : Tree<Node, N>(greater) {}
 
-    virtual void insert(Node* n, Node* p, bool dir) {
-        std::cout << "insert" << std::endl;
+    virtual void insert(Node* n, Node* p, bool dir) override {
         parent(n) = p;
         child(n)[false] = child(n)[true] = nullptr;
         balance(n) = 0;
@@ -78,65 +64,54 @@ public:
             root = n;
             return;
         }
-        assert(balance(p) != 1 || child(p)[false] == nullptr && child(p)[true] != nullptr);
-        assert(balance(p) != -1 || child(p)[true] == nullptr && child(p)[false] != nullptr);
-        assert(balance(p) != 0 || child(p)[false] == nullptr && child(p)[true] == nullptr);
-        assert(balance(p) != sign(dir));
         child(p)[dir] = n;
         if ((balance(p) += sign(dir)) == 0)
             return;
-        for (auto g = parent(p); g != nullptr; g = parent(p = g)) { // updating the balance of g; the height of p has increased
-            dir = side(p, g);
-            if (balance(g) == sign(dir)) {
-                if (balance(p) == -sign(dir))
-                    rotate2AVL(child(p)[!dir], p, g, !dir);
-                else // balance(p) == sign(dir)
-                    rotateAVL(p, g, !dir);
-                break;
+        while (true) {
+            if ((p = parent(n = p)) == nullptr) // updating the balance of p; the height of n has increased
+                return;
+            dir = side(n, p);
+            if (balance(p) != 0) {
+                if (balance(p) == sign(dir)) {
+                    if (balance(n) == sign(dir))
+                        rotateAVL(n, p, !dir);
+                    else // balance(n) == -sign(dir)
+                        rotate2AVL(child(n)[!dir], n, p, !dir);
+                } else
+                    balance(p) = 0;
+                return;
             }
-            if (balance(g) != 0) {
-                balance(g) = 0;
-                break;
-            }
-            balance(g) = sign(dir);
+            balance(p) = sign(dir);
         }
     }
 
     virtual void eraseBottom(Node* n) override {
-        std::cout << "delete" << std::endl;
         auto p = parent(n);
-        if (balance(n) != 0) { // has one child
-            auto k = child(n)[balance(n) == 1];
-            assert(k != nullptr && child(n)[balance(n) != 1] == nullptr);
-            parent(k) = p;
-            if (p == nullptr) {
-                root = k;
-                return;
-            }
-            n = child(p)[side(n, p)] = k;
-        } else {
-            auto dir = side(n, p);
-            child(p)[dir] = nullptr;
-            if ((balance(p) -= sign(dir)) != 0)
-                return;
-            p = parent(n = p);
+        Node* k = nullptr;
+        if (balance(n) != 0 && (parent(k = child(n)[balance(n) == 1]) = p) == nullptr) { // n has one child
+            root = k;
+            return;
         }
-        for (; p != nullptr; p = parent(n = p)) { // updating the balance of g; the height of p has decreased
-            auto dir = side(n, p);
-            if (balance(p) == -sign(dir)) {
+        auto dir = side(n, p);
+        child(p)[dir] = k;
+        while (true) { // updating the balance of p; the height of n has decreased
+            if (balance(p) == 0) {
+                balance(p) = -sign(dir);
+                return;
+            } else if (balance(p) == -sign(dir)) {
                 auto s = child(p)[!dir];
                 if (balance(s) == sign(dir))
-                    rotate2AVL(child(s)[dir], s, p, dir);
+                    rotate2AVL(n = child(s)[dir], s, p, dir);
                 else {
-                    rotate(s, p, dir);
+                    rotateAVL(n = s, p, dir);
                     if (balance(p) != 0)
-                        break;
+                        return;
                 }
-            } else if (balance(p) == 0) {
-                balance(p) = -sign(dir);
-                break;
             } else
-                balance(p) = 0;
+                balance(n = p) = 0;
+            if ((p = parent(n)) == nullptr)
+                return;
+            dir = side(n, p);
         }
     }
 };

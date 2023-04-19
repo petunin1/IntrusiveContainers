@@ -9,12 +9,12 @@ public:
 
 protected:
     Node* root = nullptr;
-    
+
     static inline Node*& parent(Node* n) {
         return ((Hook*)n)->parent;
     }
 
-    static inline Node*(& child(Node* n))[2] {
+    static inline Node* (&child(Node* n))[2] {
         return ((Hook*)n)->child;
     }
 
@@ -227,6 +227,7 @@ public:
     }
     
     virtual void insert(Node* n, Node* p, bool dir) = 0;
+
     virtual void eraseBottom(Node* n) = 0; // not childless root, has up to one child
 
     void clear() {

@@ -5,6 +5,14 @@
 template<typename Node, size_t N = 0>
 class TreeRB : public Tree<Node, N> {
 public:
+    using Tree<Node, N>::root;
+    using Tree<Node, N>::side;
+    using Tree<Node, N>::rotate;
+    using Tree<Node, N>::rotate2;
+    using Tree<Node, N>::insert;
+    using Tree<Node, N>::parent;
+    using Tree<Node, N>::child;
+
     enum colour_t : bool { BLACK, RED };
 
     struct Hook : public Tree<Node, N>::Hook {
@@ -21,19 +29,12 @@ protected:
     }
 
 public:
-    using Tree<Node, N>::root;
-    using Tree<Node, N>::side;
-    using Tree<Node, N>::rotate;
-    using Tree<Node, N>::insert;
-    using Tree<Node, N>::parent;
-    using Tree<Node, N>::child;
-
     TreeRB() {}
 
     TreeRB(std::function<bool(const Node* a, const Node* b)> greater)
         : Tree<Node, N>(greater) {}
 
-    virtual void insert(Node* n, Node* p, bool dir) {
+    virtual void insert(Node* n, Node* p, bool dir) override {
         parent(n) = p;
         child(n)[false] = child(n)[true] = nullptr;
         colour(n) = RED;
@@ -51,11 +52,12 @@ public:
             auto dir2 = side(p, g);
             auto u = child(g)[!dir2];
             if (u == nullptr || colour(u) == BLACK) { // p red, u black
-                if (dir != dir2) { // n is the inner grandchild of g
-                    rotate(n, p, dir2);
-                    std::swap(n, p);
+                if (dir == dir2)
+                    rotate(p, g, !dir2);
+                else {
+                    rotate2(n, p, g, !dir2);
+                    p = n;
                 }
-                rotate(p, g, !dir2);
                 colour(p) = BLACK;
                 colour(g) = RED;
                 return;
@@ -74,21 +76,17 @@ public:
             auto p = parent(n);
             child(p)[side(n, p)] = nullptr;
             return;
-        } else { // n black with up to one child (=> red)
+        } else // n black with up to one child (=> red)
             for (auto dir : { false, true }) {
                 auto k = child(n)[dir];
                 if (k != nullptr) {
                     auto p = parent(n);
                     parent(k) = p;
                     colour(k) = BLACK;
-                    if (p == nullptr)
-                        root = k;
-                    else
-                        child(p)[side(n, p)] = k;
+                    (p == nullptr ? root : child(p)[side(n, p)]) = k;
                     return;
                 }
             }
-        }
         // n black non-root without children
         Node* s, * c, * d;
         auto p = parent(n);
@@ -109,9 +107,8 @@ public:
                 goto case_p;
             // p c s d black
             colour(s) = RED;
-            n = p;
-            if ((p = parent(n)) == nullptr)
-                return; // n is root
+            if ((p = parent(n = p)) == nullptr)
+                return;
             dir = side(n, p);
         }
     case_s: // s red, p c d black
@@ -131,11 +128,10 @@ public:
         colour(p) = BLACK;
         return;
     case_c: // c red, s d black
-        rotate(c, s, !dir);
-        colour(s) = RED;
-        colour(c) = BLACK;
-        d = s;
-        s = c;
+        rotate2(c, s, p, dir);
+        colour(c) = colour(p);
+        colour(p) = BLACK;
+        return;
     case_d: // d red, s black
         rotate(s, p, dir);
         colour(s) = colour(p);
