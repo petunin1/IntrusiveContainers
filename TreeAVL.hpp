@@ -67,9 +67,7 @@ public:
         child(p)[dir] = n;
         if ((balance(p) += sign(dir)) == 0)
             return;
-        while (true) {
-            if ((p = parent(n = p)) == nullptr) // updating the balance of p; the height of n has increased
-                return;
+        while ((p = parent(n = p)) != nullptr) { // updating the balance of p; the height of n has increased
             dir = side(n, p);
             if (balance(p) != 0) {
                 if (balance(p) == sign(dir)) {

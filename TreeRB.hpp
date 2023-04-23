@@ -88,53 +88,43 @@ public:
                 }
             }
         // n black non-root without children
-        Node* s, * c, * d;
         auto p = parent(n);
         auto dir = side(n, p);
         child(p)[dir] = nullptr;
         while (true) {
-            s = child(p)[!dir];
-            d = child(s)[!dir];
-            c = child(s)[dir];
-            if (colour(s) == RED)
-                goto case_s;
+            auto s = child(p)[!dir];
+            if (colour(s) == RED) {
+                rotate(s, p, dir);
+                colour(p) = RED;
+                colour(s) = BLACK;
+                s = c;
+                // p red, s black
+            }
             // s black
-            if (d != nullptr && colour(d) == RED)
-                goto case_d;
-            if (c != nullptr && colour(c) == RED)
-                goto case_c;
-            if (colour(p) == RED)
-                goto case_p;
+            auto d = child(s)[!dir];
+            if (d != nullptr && colour(d) == RED) { // d red, s black
+                rotate(s, p, dir);
+                colour(s) = colour(p);
+                colour(p) = colour(d) = BLACK;
+                return;
+            }
+            auto c = child(s)[dir];
+            if (c != nullptr && colour(c) == RED) { // c red, s d black
+                rotate2(c, s, p, dir);
+                colour(c) = colour(p);
+                colour(p) = BLACK;
+                return;
+            }
+            if (colour(p) == RED) { // p red, s c d black
+                colour(s) = RED;
+                colour(p) = BLACK;
+                return;
+            }
             // p c s d black
             colour(s) = RED;
             if ((p = parent(n = p)) == nullptr)
                 return;
             dir = side(n, p);
         }
-    case_s: // s red, p c d black
-        rotate(s, p, dir);
-        colour(p) = RED;
-        colour(s) = BLACK;
-        s = c;
-        // p red, s black
-        d = child(s)[!dir];
-        if (d != nullptr && colour(d) == RED)
-            goto case_d;
-        c = child(s)[dir];
-        if (c != nullptr && colour(c) == RED)
-            goto case_c;
-    case_p: // p red, s c d black
-        colour(s) = RED;
-        colour(p) = BLACK;
-        return;
-    case_c: // c red, s d black
-        rotate2(c, s, p, dir);
-        colour(c) = colour(p);
-        colour(p) = BLACK;
-        return;
-    case_d: // d red, s black
-        rotate(s, p, dir);
-        colour(s) = colour(p);
-        colour(p) = colour(d) = BLACK;
     }
 };
