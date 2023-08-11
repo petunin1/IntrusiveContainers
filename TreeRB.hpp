@@ -97,7 +97,7 @@ public:
                 rotate(s, p, dir);
                 colour(p) = RED;
                 colour(s) = BLACK;
-                s = c;
+                s = child(p)[!dir];
                 // p red, s black
             }
             // s black

@@ -74,63 +74,7 @@ protected:
         return n;
     }
 
-    template<typename _Hook, typename _Node>
-    class _iterator {
-    public:
-        typedef std::bidirectional_iterator_tag iterator_category;
-        typedef _Node value_type;
-        typedef std::ptrdiff_t difference_type;
-        typedef _Node* pointer;
-        typedef _Node& reference;
-
-        _Hook* ptr;
-
-        _iterator(_Hook* ptr)
-            : ptr(ptr) {}
-
-        _Node& operator*() {
-            return *(_Node*)ptr;
-        }
-
-        _Node* operator->() {
-            return (_Node*)ptr;
-        }
-
-        _iterator& operator--() {
-            ptr = step(ptr, false);
-            return *this;
-        }
-
-        _iterator operator--(int) {
-            auto ret = *this;
-            --*this;
-            return ret;
-        }
-
-        _iterator& operator++() {
-            ptr = step(ptr, true);
-            return *this;
-        }
-
-        _iterator operator++(int) {
-            auto ret = *this;
-            ++*this;
-            return ret;
-        }
-
-        bool operator==(const _iterator<_Hook, _Node>& rhs) const {
-            return ptr == rhs.ptr;
-        }
-
-        bool operator!=(const _iterator<_Hook, _Node>& rhs) const {
-            return ptr != rhs.ptr;
-        }
-    };
-
 public:
-    typedef _iterator<Hook, Node> iterator;
-    typedef _iterator<const Hook, const Node> const_iterator;
-
     std::function<bool(const Node* a, const Node* b)> greater;
 
     static Node* step(Node* n, bool dir) {
@@ -234,27 +178,7 @@ public:
         root = nullptr;
     }
 
-    bool empty() {
+    bool empty() const {
         return root == nullptr;
-    }
-
-    iterator begin() {
-        return iterator(extremum(false));
-    }
-
-    iterator end() {
-        return iterator(nullptr);
-    }
-
-    const_iterator begin() const {
-        return const_iterator(extremum(false));
-    }
-
-    const_iterator end() const {
-        return const_iterator(nullptr);
-    }
-
-    void erase(iterator it) {
-        return erase(&*it);
     }
 };
