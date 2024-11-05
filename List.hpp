@@ -55,7 +55,7 @@ protected:
 
         _iterator operator--(int) {
             auto ret = *this;
-            --* this;
+            --*this;
             return ret;
         }
 
@@ -66,7 +66,7 @@ protected:
 
         _iterator operator++(int) {
             auto ret = *this;
-            ++* this;
+            ++*this;
             return ret;
         }
     };

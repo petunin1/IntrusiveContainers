@@ -75,7 +75,7 @@ protected:
     }
 
 public:
-    std::function<bool(const Node* a, const Node* b)> greater;
+    const std::function<bool(const Node* a, const Node* b)> greater;
 
     static Node* step(Node* n, bool dir) {
         auto x = child(n)[dir];
@@ -98,22 +98,23 @@ public:
         }
     }
 
-    Tree() {}
-
     Tree(std::function<bool(const Node* a, const Node* b)> greater)
         : greater(greater) {}
 
-    std::tuple<Node*, Node*, bool> find(std::function<bool(const Node* n)> greater, std::function<bool(const Node* n)> equal) { // returns: pointer to the node found (nullptr if not found), pointer to the parent if not found, direction from the parent if not found
+    // returns pointer to the node found (nullptr if absent), pointer to the parent if absent, direction from the parent if absent
+    auto find(std::function<std::partial_ordering(const Node* n)> comparator) {
+        struct found { Node* node; Node* parent; bool dir; };
         if (root == nullptr)
-            return { nullptr, nullptr, false };
+            return found{ nullptr, nullptr, false };
         auto n = root;
         while (true) {
-            if (equal(n))
-                return { n, nullptr, false };
-            auto dir = greater(n);
+            auto comp = comparator(n);
+            if (comp == std::partial_ordering::equivalent)
+                return found{ n, nullptr, false };
+            auto dir = comp == std::partial_ordering::greater;
             auto k = child(n)[dir];
             if (k == nullptr)
-                return { nullptr, n, dir };
+                return found{ nullptr, n, dir };
             n = k;
         }
     }
@@ -169,7 +170,7 @@ public:
         }
         eraseBottom(n);
     }
-    
+
     virtual void insert(Node* n, Node* p, bool dir) = 0;
 
     virtual void eraseBottom(Node* n) = 0; // not childless root, has up to one child

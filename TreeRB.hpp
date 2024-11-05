@@ -29,8 +29,6 @@ protected:
     }
 
 public:
-    TreeRB() {}
-
     TreeRB(std::function<bool(const Node* a, const Node* b)> greater)
         : Tree<Node, N>(greater) {}
 

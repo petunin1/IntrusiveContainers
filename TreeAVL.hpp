@@ -51,8 +51,6 @@ protected:
     }
 
 public:
-    TreeAVL() {}
-
     TreeAVL(std::function<bool(const Node* a, const Node* b)> greater)
         : Tree<Node, N>(greater) {}
 
