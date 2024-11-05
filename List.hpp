@@ -89,8 +89,12 @@ public:
         return *(Node*)tail.link[false];
     }
 
-    Node* insert(Node* node, std::function<bool(const Node* n)> f) {
-        return insert(node, &*find_first_of(f));
+    Node* insertFirst(Node* node, std::function<bool(const Node* n)> f) {
+        return insert(node, &*find_first_of(f, begin(), end()));
+    }
+
+    Node* insertLast(Node* node, std::function<bool(const Node* n)> f) {
+        return insert(node, &*find_last_of(f, rbegin(), rend()));
     }
 
     Node* insert(Node* node, Hook* dest) {
@@ -166,15 +170,13 @@ public:
         return const_reverse_iterator(&tail);
     }
 
-    iterator find_first_of(std::function<bool(const Node* n)> f) {
-        auto it = begin();
-        for (; it != end() && !f(&*it); ++it) {}
+    iterator find_first_of(std::function<bool(const Node* n)> f, iterator it, iterator last) {
+        for (; it != last && !f(&*it); ++it) {}
         return it;
     }
 
-    reverse_iterator find_last_of(std::function<bool(const Node* n)> f) {
-        auto it = rbegin();
-        for (; it != rend() && !f(&*it); ++it) {}
+    reverse_iterator find_last_of(std::function<bool(const Node* n)> f, reverse_iterator it, reverse_iterator last) {
+        for (; it != last && !f(&*it); ++it) {}
         return it;
     }
 
