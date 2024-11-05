@@ -1,8 +1,12 @@
 ## Intrusive containers implementing [list](https://en.wikipedia.org/wiki/Doubly_linked_list), abstract [binary trees](https://en.wikipedia.org/wiki/Binary_search_tree) (that can act as maps and sets), and their [red-black](https://en.wikipedia.org/wiki/Red%E2%80%93black_tree) and [AVL](https://en.wikipedia.org/wiki/AVL_tree) self-balancing forms.
 
-An object can simultaniously be part of several containers, inheriting from their hooks. To differentiate between container classes of the same name, an index in the second template argument needs to be specified.
+Intrusive containers do not copy objects passed to them and do not allocate or delete. An object can simultaniously be part of several containers, inheriting from their hooks. To differentiate between container classes of the same name, an index in the second template argument needs to be specified.
 
 ```
+#include <IntrusiveContainers/List.hpp>
+#include <IntrusiveContainers/TreeRB.hpp>
+#include <IntrusiveContainers/TreeAVL.hpp>
+
 struct Class : public List<Class>::Hook, public TreeRB<Class>::Hook, public TreeRB<Class, 1>::Hook {
     char letter;
     size_t index;
